@@ -11,6 +11,7 @@ import time
 from playsound import playsound
 import threading
 
+from recording import record_audio
 from utils import load_audio, init_torch_device
 
 host = "localhost"
@@ -113,11 +114,13 @@ def plot_ema(y_val, y_pred, channel, sensor_name):
     plt.legend()
     plt.show()
 
+record_audio()
+
 # File path to the sound
 file_index = "0015"
 sound_file_path = "/Users/zekailin00/Git/SpeechDrivenTongueAnimation/TongueMocapData/wav/"+ file_index +".wav"
 feature_path = "/Users/zekailin00/Git/SpeechDrivenTongueAnimation/TongueMocapData/ema/npy/"+ file_index +".npy"
-sound_file_path = "/Users/zekailin00/Git/ee225-blender-animation-control/custom2.wav"
+sound_file_path = "/Users/zekailin00/Git/ee225-blender-animation-control/output.wav"
 
 # Function to play sound
 def play_sound_in_background(sound_file):
