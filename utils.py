@@ -34,7 +34,7 @@ def init_torch_device(gpu_id: int=-1) -> torch.device:
         if gpu_id >= 0 and gpu_id < num_gpus:
             device_str = f'cuda:{gpu_id}'
 
-    return torch.device(device_str)
+    return torch.device("mps")
 
 
 def load_audio(path: str) -> tuple:

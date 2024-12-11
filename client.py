@@ -114,13 +114,14 @@ def plot_ema(y_val, y_pred, channel, sensor_name):
     plt.legend()
     plt.show()
 
-record_audio()
+# record_audio()
 
 # File path to the sound
 file_index = "0015"
 sound_file_path = "/Users/zekailin00/Git/SpeechDrivenTongueAnimation/TongueMocapData/wav/"+ file_index +".wav"
 feature_path = "/Users/zekailin00/Git/SpeechDrivenTongueAnimation/TongueMocapData/ema/npy/"+ file_index +".npy"
-sound_file_path = "/Users/zekailin00/Git/ee225-blender-animation-control/output.wav"
+# sound_file_path = "/Users/zekailin00/Git/ee225-blender-animation-control/output.wav"
+is_plot_on_matplotlib = False
 
 # Function to play sound
 def play_sound_in_background(sound_file):
@@ -131,6 +132,8 @@ sound_thread = threading.Thread(target=play_sound_in_background, args=(sound_fil
 device = init_torch_device(0)
 model = HubertModel.from_pretrained("facebook/hubert-large-ll60k")
 ema_predictor = torch.load("/Users/zekailin00/Git/SpeechDrivenTongueAnimation/hubert-large-ll60k-model.pth") 
+model.to(device)
+ema_predictor.to(device)
 model.eval()
 ema_predictor.eval()
 print(model)
@@ -142,47 +145,47 @@ with torch.no_grad():
     print("[input] audio_tensor.shape:", audio_tensor.shape)
 
     feat = model(audio_tensor, output_hidden_states=True)
-    x_features = feat.hidden_states[24].detach().cpu().numpy()[0]
+    x_features = feat.hidden_states[24].detach()[0]
     print("[features] x_features.shape:", x_features.shape)
 
     y_pred = []
     for i in range(x_features.shape[0]):
-        result = ema_predictor(torch.from_numpy(x_features[i]).float())
+        result = ema_predictor((x_features[i]))
         y_pred.append(result.detach().cpu().numpy())
     y_pred = np.array(y_pred)
     print("[output] y_pred.shape:", y_pred.shape)
 
-    # sensor_name = ["TD", "TB", "BR", "BL", "TT", "UL", "LC", "LL", "LI", "LJ"]
-    # y_val = np.load(feature_path)
-    # for i in range(10):
-    #     plot_ema(y_val, y_pred, [i*3+0, i*3+1, i*3+2], sensor_name[i])
+    if is_plot_on_matplotlib:
+        sensor_name = ["TD", "TB", "BR", "BL", "TT", "UL", "LC", "LL", "LI", "LJ"]
+        y_val = np.load(feature_path)
+        for i in range(10):
+            plot_ema(y_val, y_pred, [i*3+0, i*3+1, i*3+2], sensor_name[i])
+    else:
+        ema_streaming_data = y_pred
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
+            client.connect((host, port))
 
-    ema_streaming_data = y_pred
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
-        client.connect((host, port))
+            timeIndex = 0
+            def callback(time):
+                global timeIndex
+                print("time index:", timeIndex)
+                if (timeIndex >= ema_streaming_data.shape[0]):
+                    quit()
+                EMA_to_shapekeys(data, ema_streaming_data[timeIndex])
+                timeIndex += 1
 
-        timeIndex = 0
-        def callback(time):
-            global timeIndex
-            print("time index:", timeIndex)
-            if (timeIndex >= ema_streaming_data.shape[0]):
-                quit()
-            EMA_to_shapekeys(data, ema_streaming_data[timeIndex])
-            timeIndex += 1
+                client.sendall(json.dumps(data).encode("utf-8"))
 
-            client.sendall(json.dumps(data).encode("utf-8"))
-
-        # Start the thread
-        sound_thread.start()
-        run_every_n_milliseconds(20, ema_streaming_data.shape[0]/20, callback)
-        sound_thread.join()
-        client.close()
+            # Start the thread
+            sound_thread.start()
+            run_every_n_milliseconds(20, ema_streaming_data.shape[0]/20, callback)
+            sound_thread.join()
+            client.close()
 
 
 '''
 TODO:
 1. tongue
-2. real-time speaking
 3. multiple 3D face models
 4. better ema -> shape key model
 '''
