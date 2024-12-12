@@ -118,6 +118,9 @@ class SimpleModel(nn.Module):
             return self.forward(x)
 
 data = {
+    "TT": 0.0,
+    "TB": 0.0,
+    "TD": 0.0,
     "AU22 lipsFunnel": 0.0,
     "AU18 lipsProtude": 0.0,
     "AU23 lipsKiss": 0.0,
@@ -168,6 +171,9 @@ def compute_ema(buffer):
 
 
 def EMA_to_shapekeys(data, EMA):
+    data["TD"]                          = EMA[LABEL["TD"] + LABEL["z"]] / 10.0 * 1.5
+    data["TB"]                          = (EMA[LABEL["TB"] + LABEL["z"]] - EMA[LABEL["TD"] + LABEL["z"]] - 8.0) / -10.0 * 1.5
+    data["TT"]                          = (EMA[LABEL["TT"] + LABEL["z"]] - EMA[LABEL["TB"] + LABEL["z"]] - EMA[LABEL["TD"] + LABEL["z"]]) / 10.0 * 1.5
     data["AU22 lipsFunnel"]             = 0 #EMA[5*3+1]
     data["AU18 lipsProtude"]            = 0 #EMA[5*3+1]
     data["AU23 lipsKiss"]               = (EMA[LABEL["LC"]] + 4) / 10.0 
