@@ -40,7 +40,9 @@ def producer():
     buffer = np.zeros(samples_per_window, dtype=np.float32)  # Circular buffer
 
     try:
+        frame_timestamp = 0
         while True:
+            frame_timestamp = time.time()
             # Read a chunk of audio data
             data = stream.read(chunk_size, exception_on_overflow=False)
 
@@ -57,6 +59,11 @@ def producer():
             # Send the current window to the queue
             if not audio_queue.full():
                 audio_queue.put(buffer.copy())
+                end_time = time.time()
+                print("Produce buffer:", end_time - frame_timestamp, end_time)
+                frame_timestamp = end_time
+            else:
+                print("Warning: queue is full")
     except KeyboardInterrupt:
         print("\nProducer stopped by user.")
     finally:
@@ -84,9 +91,8 @@ def consumer():
                 buffer = audio_queue.get()
 
                 start_time = time.time()
-                print("begin time:", start_time)
                 send_shapekey(compute_ema(buffer))
-                print("\r\t time cost: ", time.time() - start_time)
+                print("\t\t\t\t Consumer cost: ", time.time() - start_time, start_time)
 
 
                 # Update the plot
@@ -151,6 +157,7 @@ LABEL = {
 }
 
 def compute_ema(buffer):
+    start_time = time.time()
     buffer = torch.Tensor(buffer).unsqueeze(0).to(device)
     # print("buffer.shape", buffer.shape)
     feat = model(buffer , output_hidden_states=True)
@@ -167,10 +174,12 @@ def compute_ema(buffer):
     
     y_pred = np.array(y_pred)
     # print("y_pred.shape", y_pred.shape)
+    print("\t EMA cost:", time.time() - start_time, start_time)
     return y_pred[0]
 
 
 def EMA_to_shapekeys(data, EMA):
+    start_time = time.time()
     data["TD"]                          = EMA[LABEL["TD"] + LABEL["z"]] / 10.0 * 1.5
     data["TB"]                          = (EMA[LABEL["TB"] + LABEL["z"]] - EMA[LABEL["TD"] + LABEL["z"]] - 8.0) / -10.0 * 1.5
     data["TT"]                          = (EMA[LABEL["TT"] + LABEL["z"]] - EMA[LABEL["TB"] + LABEL["z"]] - EMA[LABEL["TD"] + LABEL["z"]]) / 10.0 * 1.5
@@ -185,11 +194,14 @@ def EMA_to_shapekeys(data, EMA):
     data["AU17 hmmm"]                   = (EMA[LABEL["UL"] + LABEL["z"]] - EMA[LABEL["LI"] + LABEL["z"]] - 1) / 5.0
     data["AU28 lipsBite"]               = 0 #EMA[5*3+1]
     data["AU27 JawOpen"]                = (EMA[LABEL["LI"] + LABEL["z"]] + 20.0)/ -30.0
+    print("\t\t shapekey cost:", time.time() - start_time, start_time)
 
 def send_shapekey(ema):
+    start_time = time.time()
     # print("ema.shape", ema.shape)
     EMA_to_shapekeys(data, ema)
     client.sendall(json.dumps(data).encode("utf-8"))
+    print("\t\t\t socket cost:", time.time() - start_time, start_time)
 
 
 host = "localhost"
